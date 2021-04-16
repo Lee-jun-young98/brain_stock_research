@@ -24,7 +24,7 @@ dataset.isnull().sum()
 
 dataset["bmi"].replace(to_replace=np.nan, value = dataset.bmi.mean(), inplace=True)
 
-
+#%% 데이터 시각화 
 dataset.isnull().sum()
 
 ## 데이터셋 요약본 보기
@@ -152,6 +152,7 @@ fig = plt.figure(figsize=(10,10))
 sns.pairplot(dataset)
 
 
+# %% 데이터 전처리 
 ## 데이터 전처리
 x = dataset.iloc[:,1:-1].values
 y = dataset.iloc[:,-1].values
@@ -207,6 +208,7 @@ fig = plt.figure(figsize=(10,10))
 sns.countplot(y_train_res)
 
 
+# %% 데이터 모델링
 ## Model Selection
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -214,19 +216,15 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.naive_bayes import BernoulliNB
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-
-## conda xgboost 설치부터 다시 
+from sklearn.ensemble import RandomForestClassifier 
 from xgboost import XGBClassifier
 
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay,\
-    precision_score, recall_score, f1_score, classification_report, roc_curve, plot_roc_curve,\
-        precision_recall_curve, plot_precision_recall_curve, average_precision_score
-
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report, roc_curve, plot_roc_curve, auc, precision_recall_curve, plot_precision_recall_curve, average_precision_score
 from sklearn.model_selection import cross_val_score
 
 
 
+## 모델링
 models = []
 models.append(['Logistic Regressionm', LogisticRegression(random_state=0)])
 models.append(['SVM', SVC(random_state=0)])
@@ -272,12 +270,148 @@ for m in range(len(models)):
     list_2.append(accuracies.mean()*100)
     list_2.append(accuracies.std()*100)
     list_2.append(roc)
-    list_2.append(precision)
     list_2.append(recall)
-    list_2.append(precision)
-    list_2.append(recall)
+    list_2.append(precision)    
     list_2.append(f1)
     list_1.append(list_2)
+
+
+df = pd.DataFrame(list_1, columns =  ['Model', 'Accuracy', 'K-Fold Mean Accuracy', 'Std.Deviation','ROC AUC','Precision','Recall','F1'])
+df.sort_values(by=['Accuracy', 'K-Fold Mean Accuracy'], inplace=True, ascending=False)    
+df    
+
+## Tning the models
+from sklearn.model_selection import GridSearchCV
+
+grid_models = [(LogisticRegression(), [{'C':[0.25, 0.5, 0.75,1], 'random_state':[0]}]),
+               (KNeighborsClassifier(),[{'n_neighbors':[5,7,8,10], 'metric': ['euclidean', 'manhattan', 'chebyshev', 'minkowski']}]),
+               (SVC(), [{'C':[0.25,0.5,0.75,1],'kernel':['linear','rbf'],'random_state':[0]}]),
+               (BernoulliNB(), [{'alpha': [0.25, 0.5, 1]}]),
+               (DecisionTreeClassifier(), [{'criterion':['gini','entropy'], 'random_state':[0]}]),
+               (RandomForestClassifier(),[{'n_estimators':[100,150,200],'criterion':['gini','entropy'], 'random_state':[0]}]),
+               (XGBClassifier(), [{'learning_rate': [0.01, 0.05, 0.1], 'eval_metric': ['error']}])]
+
+for i,j in grid_models:
+    grid = GridSearchCV(estimator=i, param_grid = j, scoring = 'accuracy', cv=10)
+    grid.fit(x_train_res, y_train_res)
+    best_accuracy = grid.best_score_
+    best_param = grid.best_params_
+    print('{}:\nBest Accuracy : {:.2f}%'.format(i, best_accuracy*100))
+    print('Best Parameters : ', best_param)
+    print('')
+    print('-----------')
+    print('')
     
     
-    
+# %% 모델 하이퍼파라미터 튜닝
+## RandomForest 
+classifier = RandomForestClassifier(criterion = 'gini', n_estimators = 100, random_state=0)
+classifier.fit(x_train_res, y_train_res)
+y_pred = classifier.predict(x_test)
+y_prob = classifier.predict_proba(x_test)[:,1]
+cm = confusion_matrix(y_test, y_pred)
+
+print(classification_report(y_test, y_pred))
+print('ROC AUC score: {0}'.format(roc_auc_score(y_test, y_prob)))
+print('Accuracy Score: ', accuracy_score(y_test, y_pred))
+
+# Confusion Matrix 시각화
+plt.figure(figsize = (8,5))
+sns.heatmap(cm, cmap = 'Blues', annot = True, fmt = 'd', linewidths = 5, cbar = False, annot_kws = {'fontsize': 15}, 
+            yticklabels = ['No stroke', 'Stroke'], xticklabels = ['Predicted no stroke', 'Predicted stroke'])
+plt.yticks(rotation = 0)
+
+
+# Roc AUC Curve
+false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_prob)
+roc_auc = auc(false_positive_rate, true_positive_rate)
+
+sns.set_theme(style = 'white')
+plt.figure(figsize = (8,8))
+plt.plot(false_positive_rate, true_positive_rate, color = '#b01717', label = 'AUC = %0.3f' % roc_auc)
+plt.legend(loc='lower right')
+plt.plot([0,1], [0,1], linestyle = '--', color = '#174ab0')
+plt.axis('tight')
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+plt.legend()
+plt.show()
+
+
+# %% Xgboost
+classifier = XGBClassifier(eval_metric = 'error', learning_rate = 0.1)
+classifier.fit(x_train_res, y_train_res)
+y_pred = classifier.predict(x_test)
+y_prob = classifier.predict_proba(x_test)[:,1]
+cm = confusion_matrix(y_test, y_pred)
+
+print(classification_report(y_test, y_pred))
+print('ROC AUC score: {0}'.format(roc_auc_score(y_test, y_prob)))
+print('Accuracy Score: ', accuracy_score(y_test, y_pred))
+
+# confusion matrix  시각화
+plt.figure(figsize = (8,5))
+sns.heatmap(cm, cmap = 'Blues', annot = True, fmt = 'd', linewidths=5, cbar = False, annot_kws = {'fontsize' : 15}, yticklabels=['No Stroke', 'Stroke'],
+        xticklabels = ['Predicted no stroke', 'Predicted stroke'])
+plt.yticks(rotation = 0)
+
+# Roc Curve
+false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_prob)
+roc_auc = auc(false_positive_rate, true_positive_rate)
+
+sns.set_theme(style = 'white')
+plt.figure(figsize = (8,8))
+plt.plot(false_positive_rate, true_positive_rate, color = '#b01717', label = 'AUC = %0.3f' % roc_auc)
+plt.legend(loc = 'lower right')
+plt.plot([0,1], [0,1], linestyle = '--', color = '#174ab0')
+plt.axis('tight')
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+
+# %% Keras ANN
+# from keras.wrappers.scikit_learn import KerasClassifier
+# from sklearn.model_selection import cross_val_score
+# from keras.regularizers import l2
+# from sklearn.model_selection import GridSearchCV
+
+# ## ANN 설계
+# def ann_classifier():
+#     ann = tf.keras.models.Sequential()
+#     ann.add(tf.keras.layers.Dense(units= 8, kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01), activation='relu'))
+#     ann.add(tf.keras.layers.Dense(units= 8, kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01), activation='relu'))
+#     tf.keras.layers.Dropout(0.6)
+#     ann.add(tf.keras.layers.Dense(units= 1, activation='sigmoid'))
+#     ann.compile(optimizer= 'adam', loss= 'binary_crossentropy', metrics= ['accuracy'])
+#     return ann
+
+# ann = KerasClassifier(build_fn = ann_classifier, batch_size = 32, epochs = 50)
+# ## Cross Validation으로 ANN 평가하기
+# accuracies = cross_val_score(estimator = ann, X = x_train_res, y = y_train_res, cv=5)
+
+# mean = accuracies.mean()
+# std_deviation = accuracies.std()
+# print("Accuracy: {:.2f}%".format(mean*100))
+# print('Standard Deviation: {:.2f}%'.format(std_deviation*100))
+
+# ## ANN tuning
+# def ann_classifier(optimizer = 'adam'):
+#     ann = tf.keras.models.Sequential()
+#     ann.add(tf.keras.layers.Dense(units= 8, kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01), activation='relu'))
+#     ann.add(tf.keras.layers.Dense(units= 8, kernel_regularizer=l2(0.01), bias_regularizer=l2(0.01), activation='relu'))
+#     tf.keras.layers.Dropout(0.6)
+#     ann.add(tf.keras.layers.Dense(units= 1, activation='sigmoid'))
+#     ann.compile(optimizer= optimizer, loss= 'binary_crossentropy', metrics= ['accuracy'])
+#     return ann
+
+# ann = KerasClassifier(build_fn = ann_classifier, batch_size = 32, epochs = 50)
+
+# parameters = {'batch_size': [25, 32],
+#              'epochs': [50, 100, 150],
+#              'optimizer': ['adam', 'rmsprop']}
+
+# grid_search = GridSearchCV(estimator = ann, param_grid = parameters, scoring = 'accuracy', cv = 5, n_jobs = -1)
+
+# grid_search.fit(x_train_res, y_train_res)
+
+# best_accuracy = grid_search.best_score_
+# best_parameters = grid_search.best_params_
