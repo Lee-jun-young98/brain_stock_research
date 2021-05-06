@@ -7,9 +7,8 @@ Created on Mon Apr 12 13:17:13 2021
 
 import pandas as pd
 import numpy as np
-import seaborn as sns
 import tensorflow as tf
-import matplotlib.pyplot as plt
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -25,6 +24,8 @@ dataset.isnull().sum()
 dataset["bmi"].replace(to_replace=np.nan, value = dataset.bmi.mean(), inplace=True)
 
 #%% 데이터 시각화 
+import seaborn as sns
+import matplotlib.pyplot as plt
 dataset.isnull().sum()
 
 ## 데이터셋 요약본 보기
@@ -33,17 +34,19 @@ dataset.describe()
 ## feature들 간의 상관계수
 dataset.corr()
 
-
+dataset = dataset.drop(['id'], axis = 1)
 ## Heat map으로 상관행렬 나타내기
 corr = dataset.corr()
 
+## 상관계수 시각화
+plt.figure(figsize=(15,15))
+sns.heatmap(data = dataset.corr(), annot=True, fmt = '.2f', linewidths=.5, cmap="Reds")
+
+
 ## 상삼각 행렬
 mask = np.triu(np.ones_like(corr, dtype=bool))
-
 f, ax = plt.subplots(figsize=(11,9))
-
 cmap = sns.diverging_palette(230, 20, as_cmap = True)
-
 sns.heatmap(corr, mask=mask, cmap=cmap, vmax=.3, center=0, square = True, linewidths=.5, cbar_kws={"shrink":.5})
 
 ## gender
@@ -101,20 +104,17 @@ plt.xlim([10,100])
 
 ## 포도당 분포에 의한 stroke 분포보기
 plt.figure(figsize=(12,10))
-
 sns.distplot(dataset[dataset['stroke']==0]["avg_glucose_level"], color='green')
 sns.distplot(dataset[dataset['stroke']==1]["avg_glucose_level"], color="red")
-
 plt.title('No Stroke vs Stroke by Avg. Clucose Level', fontsize=15)
 plt.xlim([30,330])
 
 
 ## 나이에 의한 stroke 분포보기
 plt.figure(figsize=(12,10))
-
 sns.distplot(dataset[dataset['stroke']==0]["age"], color="green")
 sns.distplot(dataset[dataset['stroke']==1]["age"], color="red")
-plt.title('No Stroke vvs Stroke by Age', fontsize=15)
+plt.title('No Stroke vs Stroke by Age', fontsize=15)
 plt.xlim([18,100])
 
 ## Scatter plot
@@ -154,6 +154,16 @@ sns.pairplot(dataset)
 
 # %% 데이터 전처리 
 ## 데이터 전처리
+dataset = pd.read_csv('C:\stroke_dataset\healthcare-dataset-stroke-data.csv')
+
+dataset
+
+dataset.info()
+
+dataset.isnull().sum()
+
+
+dataset["bmi"].replace(to_replace=np.nan, value = dataset.bmi.mean(), inplace=True)
 x = dataset.iloc[:,1:-1].values
 y = dataset.iloc[:,-1].values
 
@@ -211,14 +221,13 @@ sns.countplot(y_train_res)
 # %% 데이터 모델링
 ## Model Selection
 from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
+## from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.naive_bayes import BernoulliNB
+## from sklearn.naive_bayes import BernoulliNB
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier 
 from xgboost import XGBClassifier
-
 from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report, roc_curve, plot_roc_curve, auc, precision_recall_curve, plot_precision_recall_curve, average_precision_score
 from sklearn.model_selection import cross_val_score
 
@@ -226,11 +235,11 @@ from sklearn.model_selection import cross_val_score
 
 ## 모델링
 models = []
-models.append(['Logistic Regressionm', LogisticRegression(random_state=0)])
+models.append(['Logistic Regression', LogisticRegression(random_state=0)])
 models.append(['SVM', SVC(random_state=0)])
-models.append(['KNeighbors', KNeighborsClassifier()])
+## models.append(['KNeighbors', KNeighborsClassifier()])
 models.append(['GaussiianNB', GaussianNB()])
-models.append(['BernoulliNB', BernoulliNB()])
+## models.append(['BernoulliNB', BernoulliNB()])
 models.append(['Decision Tree', DecisionTreeClassifier(random_state=0)])
 models.append(['Random Forest', RandomForestClassifier(random_state=0)])
 models.append(['XGBoost', XGBClassifier(eval_metric = 'error')])
@@ -283,10 +292,17 @@ df
 ## Tning the models
 from sklearn.model_selection import GridSearchCV
 
+# =============================================================================
+# grid_models = [(LogisticRegression(), [{'C':[0.25, 0.5, 0.75,1], 'random_state':[0]}]),
+#                (KNeighborsClassifier(),[{'n_neighbors':[5,7,8,10], 'metric': ['euclidean', 'manhattan', 'chebyshev', 'minkowski']}]),
+#                (SVC(), [{'C':[0.25,0.5,0.75,1],'kernel':['linear','rbf'],'random_state':[0]}]),
+#                (BernoulliNB(), [{'alpha': [0.25, 0.5, 1]}]),
+#                (DecisionTreeClassifier(), [{'criterion':['gini','entropy'], 'random_state':[0]}]),
+#                (RandomForestClassifier(),[{'n_estimators':[100,150,200],'criterion':['gini','entropy'], 'random_state':[0]}]),
+#                (XGBClassifier(), [{'learning_rate': [0.01, 0.05, 0.1], 'eval_metric': ['error']}])]
+# =============================================================================
+
 grid_models = [(LogisticRegression(), [{'C':[0.25, 0.5, 0.75,1], 'random_state':[0]}]),
-               (KNeighborsClassifier(),[{'n_neighbors':[5,7,8,10], 'metric': ['euclidean', 'manhattan', 'chebyshev', 'minkowski']}]),
-               (SVC(), [{'C':[0.25,0.5,0.75,1],'kernel':['linear','rbf'],'random_state':[0]}]),
-               (BernoulliNB(), [{'alpha': [0.25, 0.5, 1]}]),
                (DecisionTreeClassifier(), [{'criterion':['gini','entropy'], 'random_state':[0]}]),
                (RandomForestClassifier(),[{'n_estimators':[100,150,200],'criterion':['gini','entropy'], 'random_state':[0]}]),
                (XGBClassifier(), [{'learning_rate': [0.01, 0.05, 0.1], 'eval_metric': ['error']}])]
@@ -305,6 +321,11 @@ for i,j in grid_models:
     
 # %% 모델 하이퍼파라미터 튜닝
 ## RandomForest 
+# precision 0.95
+# recall 0.95
+# f1 - score 0.95
+# AUC 0.732
+# Accuracy 0.90
 classifier = RandomForestClassifier(criterion = 'gini', n_estimators = 100, random_state=0)
 classifier.fit(x_train_res, y_train_res)
 y_pred = classifier.predict(x_test)
@@ -337,6 +358,63 @@ plt.xlabel('False Positive Rate')
 plt.legend()
 plt.show()
 
+#%% 랜덤포레스트 하이퍼파리미터 튜닝
+# precision 0.97
+# recall 0.87
+# f1 - score 0.91
+# AUC 0.772
+# Accuracy 0.84
+params = {'n_estimators' : [10,100],
+          'max_depth' : [6,8,10,12],
+          'min_samples_leaf' : [8, 12, 18],
+          'min_samples_split' : [8, 16, 20]
+          }
+rf_clf = RandomForestClassifier(random_state = 0, n_jobs = -1)
+grid_cv = GridSearchCV(rf_clf, param_grid = params, cv = 3, n_jobs = -1)
+grid_cv.fit(x_train_res, y_train_res)
+
+print('최적 하이퍼 파라메터: ', grid_cv.best_params_)
+print('최고 예측 정확도: {:.2f}'.format(grid_cv.best_score_))
+
+classifier = RandomForestClassifier(n_estimators = 100, 
+                                    max_depth = 12,
+                                    min_samples_leaf = 8,
+                                    min_samples_split = 20,
+                                    random_state=0,
+                                    n_jobs = -1)
+classifier.fit(x_train_res, y_train_res)
+y_pred = classifier.predict(x_test)
+y_prob = classifier.predict_proba(x_test)[:,1]
+cm = confusion_matrix(y_test, y_pred)
+
+
+print(classification_report(y_test, y_pred))
+print('ROC AUC score: {0}'.format(roc_auc_score(y_test, y_prob)))
+print('Accuracy Score: ', accuracy_score(y_test, y_pred))
+
+
+
+# Confusion Matrix 시각화
+plt.figure(figsize = (8,5))
+sns.heatmap(cm, cmap = 'Blues', annot = True, fmt = 'd', linewidths = 5, cbar = False, annot_kws = {'fontsize': 15}, 
+            yticklabels = ['No stroke', 'Stroke'], xticklabels = ['Predicted no stroke', 'Predicted stroke'])
+plt.yticks(rotation = 0)
+
+
+# Roc AUC Curve
+false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_prob)
+roc_auc = auc(false_positive_rate, true_positive_rate)
+
+sns.set_theme(style = 'white')
+plt.figure(figsize = (8,8))
+plt.plot(false_positive_rate, true_positive_rate, color = '#b01717', label = 'AUC = %0.3f' % roc_auc)
+plt.legend(loc='lower right')
+plt.plot([0,1], [0,1], linestyle = '--', color = '#174ab0')
+plt.axis('tight')
+plt.ylabel('True Positive Rate')
+plt.xlabel('False Positive Rate')
+plt.legend()
+plt.show() 
 
 # %% Xgboost
 classifier = XGBClassifier(eval_metric = 'error', learning_rate = 0.1)
@@ -361,9 +439,9 @@ roc_auc = auc(false_positive_rate, true_positive_rate)
 
 sns.set_theme(style = 'white')
 plt.figure(figsize = (8,8))
-plt.plot(false_positive_rate, true_positive_rate, color = '#b01717', label = 'AUC = %0.3f' % roc_auc)
+plt.plot(false_positive_rate, true_positive_rate, color = 'red', label = 'AUC = %0.2f' % roc_auc)
 plt.legend(loc = 'lower right')
-plt.plot([0,1], [0,1], linestyle = '--', color = '#174ab0')
+plt.plot([0,1], [0,1], linestyle = '--', color = 'blue')
 plt.axis('tight')
 plt.ylabel('True Positive Rate')
 plt.xlabel('False Positive Rate')
