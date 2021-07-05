@@ -7,9 +7,28 @@ Created on Mon Apr 12 13:17:13 2021
 
 import pandas as pd
 import numpy as np
-import tensorflow as tf
-
 import warnings
+from sklearn.linear_model import LogisticRegression
+## from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+## from sklearn.naive_bayes import BernoulliNB
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier 
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report, roc_curve, plot_roc_curve, auc, precision_recall_curve, plot_precision_recall_curve, average_precision_score
+from sklearn.model_selection import cross_val_score
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from imblearn.over_sampling import SMOTE
+from sklearn.model_selection import GridSearchCV
+
+
 warnings.filterwarnings("ignore")
 
 dataset = pd.read_csv('C:\stroke_dataset\healthcare-dataset-stroke-data.csv')
@@ -24,8 +43,7 @@ dataset.isnull().sum()
 dataset["bmi"].replace(to_replace=np.nan, value = dataset.bmi.mean(), inplace=True)
 
 #%% 데이터 시각화 
-import seaborn as sns
-import matplotlib.pyplot as plt
+
 dataset.isnull().sum()
 
 ## 데이터셋 요약본 보기
@@ -40,7 +58,7 @@ corr = dataset.corr()
 
 ## 상관계수 시각화
 plt.figure(figsize=(15,15))
-sns.heatmap(data = dataset.corr(), annot=True, fmt = '.2f', linewidths=.5, cmap="Reds")
+sns.heatmap(data = dataset.corr(), annot=True, fmt = '.2f', linewidths=.5, cmap="Reds",annot_kws={"size": 16})
 
 
 ## 상삼각 행렬
@@ -110,9 +128,18 @@ plt.title('No Stroke vs Stroke by Avg. Clucose Level', fontsize=15)
 plt.xlim([30,330])
 
 
+plt.figure(figsize=(12,10))
+sns.set(font_scale=2)
+sns.countplot(dataset[dataset['stroke']==0]["gender"], color="green")
+sns.countplot(dataset[dataset['stroke']==1]["gender"], color="red")
+plt.title('No Stroke vs Stroke by Geender', fontsize=15)
+
+
+
 ## 나이에 의한 stroke 분포보기
 plt.figure(figsize=(12,10))
-sns.distplot(dataset[dataset['stroke']==0]["age"], color="green")
+sns.set(font_scale=2)
+sns.distplot(dataset[dataset['stroke']==0]["age"], color="green",)
 sns.distplot(dataset[dataset['stroke']==1]["age"], color="red")
 plt.title('No Stroke vs Stroke by Age', fontsize=15)
 plt.xlim([18,100])
@@ -154,6 +181,7 @@ sns.pairplot(dataset)
 
 # %% 데이터 전처리 
 ## 데이터 전처리
+
 dataset = pd.read_csv('C:\stroke_dataset\healthcare-dataset-stroke-data.csv')
 
 dataset
@@ -161,6 +189,8 @@ dataset
 dataset.info()
 
 dataset.isnull().sum()
+# feature 이름
+features = dataset.iloc[:,1:-1].columns.values
 
 
 dataset["bmi"].replace(to_replace=np.nan, value = dataset.bmi.mean(), inplace=True)
@@ -168,46 +198,46 @@ x = dataset.iloc[:,1:-1].values
 y = dataset.iloc[:,-1].values
 
 
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
-
 ct = ColumnTransformer(transformers = [('encoder', OneHotEncoder(), [0,5,9])], remainder = 'passthrough')
 x = np.array(ct.fit_transform(x))
 
 
 ## 라벨 인코딩
-from sklearn.preprocessing import LabelEncoder
 le = LabelEncoder()
 x[:, 15] = le.fit_transform(x[:,15])
 x[:, 16] = le.fit_transform(x[:, 16])
 x
-
+x.shape
 print('Shape of X: ', x.shape)
 print('Shape of Y: ', y.shape)
 
 
 ## training set 과 tset 셋으로 나누기
-from sklearn.model_selection import train_test_split
-x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
 
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=0)
+x_train.shape
 print("Number transactions x_train dataset: ", x_train.shape)
 print("Number transactions y_train dataset: ", y_train.shape)
 print("Number transactions x_test dataset: ", x_test.shape)
 print("Number transactions y_test dataset: ", y_test.shape)
 
 # 변수 스케일링
-from sklearn.preprocessing import StandardScaler
 sc = StandardScaler()
 x_train = sc.fit_transform(x_train)
 x_test = sc.transform(x_test)
 
 ## SMOTE를 이용해 데이터 불균형 손보기
-from imblearn.over_sampling import SMOTE
 print("Before OverSampling, counts of label '1' : {}".format(sum(y_train==1)))
 print("Before OverSampling, counts of label '0' : {} \n".format(sum(y_train==0)))
+fig = plt.figure(figsize=(10,10))
+sns.countplot(y_train)
+
+
 
 sm = SMOTE(random_state=2)
 x_train_res, y_train_res = sm.fit_resample(x_train, y_train.ravel())
+x_train_res.shape
+y_train_res.shape
 
 print('After OverSampling, the shape of train_X: {}'.format(x_train_res.shape))
 print('After OverSampling, the shape of train_y: {}\n'.format(y_train_res.shape))
@@ -218,20 +248,10 @@ fig = plt.figure(figsize=(10,10))
 sns.countplot(y_train_res)
 
 
+
+
 # %% 데이터 모델링
 ## Model Selection
-from sklearn.linear_model import LogisticRegression
-## from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-## from sklearn.naive_bayes import BernoulliNB
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier 
-from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, precision_score, recall_score, f1_score, classification_report, roc_curve, plot_roc_curve, auc, precision_recall_curve, plot_precision_recall_curve, average_precision_score
-from sklearn.model_selection import cross_val_score
-
-
 
 ## 모델링
 models = []
@@ -252,18 +272,15 @@ for m in range(len(models)):
     model.fit(x_train_res, y_train_res)
     y_pred = model.predict(x_test)
     cm = confusion_matrix(y_test, y_pred) 
-    accuracies = cross_val_score(estimator = model, X = x_train_res, y = y_train_res, cv = 10) ## 교차검증
     roc = roc_auc_score(y_test, y_pred) ## roc커브
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred, average="weighted")
+    recall = recall_score(y_test, y_pred, average="weighted")
+    f1 = f1_score(y_test, y_pred, average="weighted")
     print(models[m][0], ':')
     print(cm)
     print('Accuracy Score: ', accuracy_score(y_test, y_pred))
     print('')
-    print("K-Fold Validation Mean Accuracy: {:.2f} %".format(accuracies.mean()*100))
     print('')
-    print('Standard Deviation: {:.2f} %'.format(accuracies.std()*100))
     print('')
     print("ROC AUC Score: {:.2f}".format(roc))
     print('')
@@ -276,8 +293,6 @@ for m in range(len(models)):
     print('')
     list_2.append(models[m][0]) 
     list_2.append((accuracy_score(y_test, y_pred))*100)
-    list_2.append(accuracies.mean()*100)
-    list_2.append(accuracies.std()*100)
     list_2.append(roc)
     list_2.append(recall)
     list_2.append(precision)    
@@ -285,12 +300,11 @@ for m in range(len(models)):
     list_1.append(list_2)
 
 
-df = pd.DataFrame(list_1, columns =  ['Model', 'Accuracy', 'K-Fold Mean Accuracy', 'Std.Deviation','ROC AUC','Precision','Recall','F1'])
-df.sort_values(by=['Accuracy', 'K-Fold Mean Accuracy'], inplace=True, ascending=False)    
+df = pd.DataFrame(list_1, columns =  ['Model', 'Accuracy','ROC AUC','Precision','Recall','F1'])
+
 df    
 
 ## Tning the models
-from sklearn.model_selection import GridSearchCV
 
 # =============================================================================
 # grid_models = [(LogisticRegression(), [{'C':[0.25, 0.5, 0.75,1], 'random_state':[0]}]),
@@ -326,6 +340,7 @@ for i,j in grid_models:
 # f1 - score 0.95
 # AUC 0.732
 # Accuracy 0.90
+from sklearn.ensemble import RandomForestClassifier
 classifier = RandomForestClassifier(criterion = 'gini', n_estimators = 100, random_state=0)
 classifier.fit(x_train_res, y_train_res)
 y_pred = classifier.predict(x_test)
@@ -364,6 +379,10 @@ plt.show()
 # f1 - score 0.91
 # AUC 0.772
 # Accuracy 0.84
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import GridSearchCV
+
+
 params = {'n_estimators' : [10,100],
           'max_depth' : [6,8,10,12],
           'min_samples_leaf' : [8, 12, 18],
@@ -372,6 +391,7 @@ params = {'n_estimators' : [10,100],
 rf_clf = RandomForestClassifier(random_state = 0, n_jobs = -1)
 grid_cv = GridSearchCV(rf_clf, param_grid = params, cv = 3, n_jobs = -1)
 grid_cv.fit(x_train_res, y_train_res)
+
 
 print('최적 하이퍼 파라메터: ', grid_cv.best_params_)
 print('최고 예측 정확도: {:.2f}'.format(grid_cv.best_score_))
@@ -415,6 +435,32 @@ plt.ylabel('True Positive Rate')
 plt.xlabel('False Positive Rate')
 plt.legend()
 plt.show() 
+
+
+## 피처 중요도 시각화 
+classifier.feature_importances_
+
+fea_imp = sorted(classifier.feature_importances_)[::-1]
+fea_imp_rev = fea_imp[0:10]
+fea_imp_rev
+features
+
+def plot_feature_importances_stroke(model):
+    n_features = x.data.shape[1]
+    plt.barh(np.arange(n_features), fea_imp_rev, align='center')
+    plt.yticks(np.arange(n_features), features)
+    plt.xlabel("Random Forest Feature importance")
+    plt.ylabel("Feature")
+    plt.ylim(-1, n_features)
+
+
+plot_feature_importances_stroke(classifier)
+
+
+
+
+
+
 
 # %% Xgboost
 classifier = XGBClassifier(eval_metric = 'error', learning_rate = 0.1)
