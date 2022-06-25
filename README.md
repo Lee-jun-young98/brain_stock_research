@@ -49,6 +49,6 @@
 - Random Forest
 - Gaussian NB
 
-## 
+## 기타자료
 
 https://fuchsia-runner-4af.notion.site/beb770371b08409b91b5df097e207d69
